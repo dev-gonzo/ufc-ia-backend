@@ -1,0 +1,277 @@
+basePath: /
+definitions:
+  auth.LoginInput:
+    properties:
+      email:
+        example: admin@email.com
+        type: string
+      password:
+        example: "123456"
+        type: string
+    type: object
+  auth.LoginResponse:
+    properties:
+      token:
+        example: jwt-token
+        type: string
+    type: object
+  httpresponse.ErrorBody:
+    properties:
+      code:
+        example: INVALID_BODY
+        type: string
+      message:
+        example: invalid body
+        type: string
+    type: object
+  httpresponse.ErrorResponse:
+    properties:
+      error:
+        $ref: '#/definitions/httpresponse.ErrorBody'
+    type: object
+  ufcstats.Event:
+    properties:
+      date:
+        type: string
+      location:
+        type: string
+      name:
+        type: string
+      url:
+        type: string
+    type: object
+  users.ChangePasswordInput:
+    properties:
+      current_password:
+        type: string
+      new_password:
+        type: string
+    type: object
+  users.ChangeRoleInput:
+    properties:
+      role:
+        type: string
+      user_id:
+        type: string
+    type: object
+  users.CreateUserInput:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+      username:
+        type: string
+    type: object
+  users.User:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      last_login_at:
+        type: string
+      role:
+        type: string
+      username:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: UFC scraping and AI platform
+  title: UFC Backend API
+  version: "1.0"
+paths:
+  /login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user and return JWT token
+      parameters:
+      - description: Login payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/auth.LoginInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.LoginResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpresponse.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpresponse.ErrorResponse'
+        "405":
+          description: Method Not Allowed
+          schema:
+            $ref: '#/definitions/httpresponse.ErrorResponse'
+      summary: Login
+      tags:
+      - auth
+  /scrape/events:
+    get:
+      description: Get all completed UFC events from ufcstats.com
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/ufcstats.Event'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpresponse.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Scrape UFC events
+      tags:
+      - Scraping
+  /users:
+    post:
+      consumes:
+      - application/json
+      description: Create new user
+      parameters:
+      - description: Create user payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/users.CreateUserInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/users.User'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpresponse.ErrorResponse'
+        "405":
+          description: Method Not Allowed
+          schema:
+            $ref: '#/definitions/httpresponse.ErrorResponse'
+      summary: Create user
+      tags:
+      - users
+  /users/change-password:
+    post:
+      consumes:
+      - application/json
+      description: Change authenticated user password
+      parameters:
+      - description: Change password payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/users.ChangePasswordInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpresponse.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpresponse.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httpresponse.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Change password
+      tags:
+      - users
+  /users/change-role:
+    patch:
+      consumes:
+      - application/json
+      description: Change role of a user
+      parameters:
+      - description: Change role payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/users.ChangeRoleInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpresponse.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpresponse.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Change user role
+      tags:
+      - users
+  /users/list:
+    get:
+      description: List all users
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/users.User'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httpresponse.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpresponse.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List users
+      tags:
+      - users
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
