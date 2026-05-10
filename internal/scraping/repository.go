@@ -2,10 +2,11 @@ package scraping
 
 import (
 	"context"
-	"ufc-backend/internal/scraping/tapology"
-	"ufc-backend/internal/scraping/ufcstats"
-
+	"strings"
 	"time"
+	"ufc-backend/internal/scraping/tapology"
+	"ufc-backend/internal/scraping/ufc"
+	"ufc-backend/internal/scraping/ufcstats"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -159,6 +160,123 @@ func (r *Repository) UpsertFighter(ctx context.Context, fighter *ufcstats.Fighte
 	}
 
 	return id, nil
+}
+
+func (r *Repository) UpsertFighterUFCDetails(ctx context.Context, fighterID string, d *ufc.AthleteDetails) error {
+	var photo any
+	if d.PhotoWebPBase64 != nil && strings.TrimSpace(*d.PhotoWebPBase64) != "" {
+		photo = *d.PhotoWebPBase64
+	}
+
+	var active any
+	if d.IsActive != nil {
+		active = *d.IsActive
+	}
+
+	var hometown any
+	if d.Hometown != nil && strings.TrimSpace(*d.Hometown) != "" {
+		hometown = *d.Hometown
+	}
+
+	var style any
+	if d.FightingStyle != nil && strings.TrimSpace(*d.FightingStyle) != "" {
+		style = *d.FightingStyle
+	}
+
+	var height any
+	if d.Height != nil && strings.TrimSpace(*d.Height) != "" {
+		height = *d.Height
+	}
+
+	var weight any
+	if d.Weight != nil && strings.TrimSpace(*d.Weight) != "" {
+		weight = *d.Weight
+	}
+
+	var debut any
+	if d.UFCDebut != nil && strings.TrimSpace(*d.UFCDebut) != "" {
+		debut = *d.UFCDebut
+	}
+
+	var reach any
+	if d.Reach != nil && strings.TrimSpace(*d.Reach) != "" {
+		reach = *d.Reach
+	}
+
+	var legReach any
+	if d.LegReach != nil && strings.TrimSpace(*d.LegReach) != "" {
+		legReach = *d.LegReach
+	}
+
+	var facts any
+	if d.FighterFacts != nil && strings.TrimSpace(*d.FighterFacts) != "" {
+		facts = *d.FighterFacts
+	}
+
+	var history any
+	if d.UFCHistory != nil && strings.TrimSpace(*d.UFCHistory) != "" {
+		history = *d.UFCHistory
+	}
+
+	var qa any
+	if d.QA != nil && strings.TrimSpace(*d.QA) != "" {
+		qa = *d.QA
+	}
+
+	_, err := r.db.Exec(ctx, `
+		INSERT INTO fighter_ufc_details (
+			fighter_id,
+			athlete_url,
+			athlete_slug,
+			photo_webp_base64,
+			is_active,
+			hometown,
+			fighting_style,
+			height,
+			weight,
+			ufc_debut,
+			reach,
+			leg_reach,
+			fighter_facts,
+			ufc_history,
+			qa,
+			updated_at
+		)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,NOW())
+		ON CONFLICT (fighter_id) DO UPDATE SET
+			athlete_url = EXCLUDED.athlete_url,
+			athlete_slug = EXCLUDED.athlete_slug,
+			photo_webp_base64 = EXCLUDED.photo_webp_base64,
+			is_active = EXCLUDED.is_active,
+			hometown = EXCLUDED.hometown,
+			fighting_style = EXCLUDED.fighting_style,
+			height = EXCLUDED.height,
+			weight = EXCLUDED.weight,
+			ufc_debut = EXCLUDED.ufc_debut,
+			reach = EXCLUDED.reach,
+			leg_reach = EXCLUDED.leg_reach,
+			fighter_facts = EXCLUDED.fighter_facts,
+			ufc_history = EXCLUDED.ufc_history,
+			qa = EXCLUDED.qa,
+			updated_at = NOW()
+	`,
+		fighterID,
+		d.AthleteURL,
+		d.AthleteSlug,
+		photo,
+		active,
+		hometown,
+		style,
+		height,
+		weight,
+		debut,
+		reach,
+		legReach,
+		facts,
+		history,
+		qa,
+	)
+	return err
 }
 
 func (r *Repository) UpsertFight(ctx context.Context, fight *ufcstats.Fight) (string, error) {

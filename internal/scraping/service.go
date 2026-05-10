@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"ufc-backend/internal/scraping/tapology"
+	"ufc-backend/internal/scraping/ufc"
 	"ufc-backend/internal/scraping/ufcstats"
 	"ufc-backend/internal/shared/logger"
 
@@ -170,6 +171,10 @@ func (s *Service) ScrapeAndSaveEventFights(
 				return nil, err
 			}
 			fight.RedFighterID = &redID
+
+			if err := s.tryUpsertUFCAthleteDetails(ctx, redID, redFighter.Name); err != nil {
+				return nil, err
+			}
 		}
 
 		if blueRef != nil && strings.TrimSpace(blueRef.URL) != "" {
@@ -184,6 +189,10 @@ func (s *Service) ScrapeAndSaveEventFights(
 				return nil, err
 			}
 			fight.BlueFighterID = &blueID
+
+			if err := s.tryUpsertUFCAthleteDetails(ctx, blueID, blueFighter.Name); err != nil {
+				return nil, err
+			}
 		}
 
 		fight.EventID = &eventID
@@ -230,7 +239,36 @@ func (s *Service) ScrapeAndSaveFighter(
 		return nil, err
 	}
 
+	if err := s.tryUpsertUFCAthleteDetails(ctx, fighterID, fighter.Name); err != nil {
+		return nil, err
+	}
+
 	fighter.ID = &fighterID
 	logger.Debugf("scrape_fighter_done id=%s url=%s", strings.TrimSpace(fighterID), strings.TrimSpace(url))
 	return fighter, nil
+}
+
+func (s *Service) tryUpsertUFCAthleteDetails(ctx context.Context, fighterID string, fighterName string) error {
+	fighterName = strings.TrimSpace(fighterName)
+	if fighterName == "" || strings.TrimSpace(fighterID) == "" {
+		return nil
+	}
+
+	details, err := ufc.ScrapeAthleteDetailsByName(ctx, fighterName)
+	if err != nil {
+		if errors.Is(err, ufc.ErrAthleteNotFound) || errors.Is(err, ufc.ErrInvalidAthleteSlug) {
+			logger.Debugf("ufc_athlete_skip name=%s err=%s", fighterName, err.Error())
+			return nil
+		}
+		logger.Errorf("ufc_athlete_scrape_failed name=%s err=%s", fighterName, err.Error())
+		return nil
+	}
+
+	if err := s.repo.UpsertFighterUFCDetails(ctx, fighterID, details); err != nil {
+		logger.Errorf("ufc_athlete_upsert_failed fighter_id=%s name=%s err=%s", fighterID, fighterName, err.Error())
+		return err
+	}
+
+	logger.Debugf("ufc_athlete_upsert_done fighter_id=%s name=%s slug=%s", fighterID, fighterName, details.AthleteSlug)
+	return nil
 }
