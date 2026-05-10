@@ -201,6 +201,58 @@ const docTemplate = `{
                 }
             }
         },
+        "/scrape/fight-details": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Given an internal fight UUID (from fights table), scrapes fight-details page and stores referee, judges, and stats (totals and per round)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Scraping"
+                ],
+                "summary": "Scrape and save UFC fight details and stats",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Fight UUID (from fights table)",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ufcstats.FightDetailsScrape"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httpresponse.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httpresponse.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httpresponse.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/scrape/fighter": {
             "get": {
                 "security": [
@@ -615,6 +667,72 @@ const docTemplate = `{
                 }
             }
         },
+        "ufcstats.FightBonus": {
+            "type": "object",
+            "properties": {
+                "recipient": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "ufcstats.FightDetailsScrape": {
+            "type": "object",
+            "properties": {
+                "blue": {
+                    "$ref": "#/definitions/ufcstats.Fighter"
+                },
+                "bonuses": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ufcstats.FightBonus"
+                    }
+                },
+                "fight": {
+                    "$ref": "#/definitions/ufcstats.Fight"
+                },
+                "is_title_bout": {
+                    "type": "boolean"
+                },
+                "judges": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ufcstats.JudgeScore"
+                    }
+                },
+                "red": {
+                    "$ref": "#/definitions/ufcstats.Fighter"
+                },
+                "referee_name": {
+                    "type": "string"
+                },
+                "round_stats": {
+                    "$ref": "#/definitions/ufcstats.FightRoundStats"
+                },
+                "rounds": {
+                    "type": "integer"
+                }
+            }
+        },
+        "ufcstats.FightRoundStats": {
+            "type": "object",
+            "properties": {
+                "blue": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ufcstats.RoundFighterStat"
+                    }
+                },
+                "red": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/ufcstats.RoundFighterStat"
+                    }
+                }
+            }
+        },
         "ufcstats.Fighter": {
             "type": "object",
             "properties": {
@@ -653,6 +771,94 @@ const docTemplate = `{
                 },
                 "weight": {
                     "type": "string"
+                }
+            }
+        },
+        "ufcstats.JudgeScore": {
+            "type": "object",
+            "properties": {
+                "blue_score": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "red_score": {
+                    "type": "integer"
+                }
+            }
+        },
+        "ufcstats.RoundFighterStat": {
+            "type": "object",
+            "properties": {
+                "body_attempted": {
+                    "type": "integer"
+                },
+                "body_landed": {
+                    "type": "integer"
+                },
+                "clinch_attempted": {
+                    "type": "integer"
+                },
+                "clinch_landed": {
+                    "type": "integer"
+                },
+                "ctrl": {
+                    "type": "string"
+                },
+                "distance_attempted": {
+                    "type": "integer"
+                },
+                "distance_landed": {
+                    "type": "integer"
+                },
+                "ground_attempted": {
+                    "type": "integer"
+                },
+                "ground_landed": {
+                    "type": "integer"
+                },
+                "head_attempted": {
+                    "type": "integer"
+                },
+                "head_landed": {
+                    "type": "integer"
+                },
+                "kd": {
+                    "type": "integer"
+                },
+                "leg_attempted": {
+                    "type": "integer"
+                },
+                "leg_landed": {
+                    "type": "integer"
+                },
+                "rev": {
+                    "type": "integer"
+                },
+                "round": {
+                    "type": "integer"
+                },
+                "sig_attempted": {
+                    "type": "integer"
+                },
+                "sig_landed": {
+                    "type": "integer"
+                },
+                "sub_att": {
+                    "type": "integer"
+                },
+                "td_attempted": {
+                    "type": "integer"
+                },
+                "td_landed": {
+                    "type": "integer"
+                },
+                "total_attempted": {
+                    "type": "integer"
+                },
+                "total_landed": {
+                    "type": "integer"
                 }
             }
         },

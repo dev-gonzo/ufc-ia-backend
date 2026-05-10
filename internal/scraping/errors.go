@@ -19,6 +19,15 @@ const (
 	CodeScrapeEventFightsFailed = "SCRAPE_EVENT_FIGHTS_FAILED"
 	MsgScrapeEventFightsFailed  = "failed to scrape event fights"
 
+	CodeMissingFightID = "MISSING_FIGHT_ID"
+	MsgMissingFightID  = "The fight id query parameter is required"
+
+	CodeFightNotFound = "FIGHT_NOT_FOUND"
+	MsgFightNotFound  = "fight not found"
+
+	CodeScrapeFightDetailsFailed = "SCRAPE_FIGHT_DETAILS_FAILED"
+	MsgScrapeFightDetailsFailed  = "failed to scrape fight details"
+
 	CodeMissingFighterIDOrURL = "MISSING_FIGHTER_ID_OR_URL"
 	MsgMissingFighterIDOrURL  = "The fighter id or url query parameter is required"
 

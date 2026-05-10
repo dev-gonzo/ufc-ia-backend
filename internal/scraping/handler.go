@@ -174,6 +174,63 @@ func (h *Handler) ScrapeEventFights(
 	)
 }
 
+// ScrapeFightDetails godoc
+//
+//	@Summary		Scrape and save UFC fight details and stats
+//	@Description	Given an internal fight UUID (from fights table), scrapes fight-details page and stores referee, judges, and stats (totals and per round)
+//	@Tags			Scraping
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	query		string	true	"Fight UUID (from fights table)"
+//	@Success		200	{object}	ufcstats.FightDetailsScrape
+//	@Failure		400	{object}	httpresponse.ErrorResponse
+//	@Failure		404	{object}	httpresponse.ErrorResponse
+//	@Failure		500	{object}	httpresponse.ErrorResponse
+//	@Router			/scrape/fight-details [get]
+func (h *Handler) ScrapeFightDetails(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+	id := r.URL.Query().Get("id")
+	if strings.TrimSpace(id) == "" {
+		httpresponse.Error(
+			w,
+			http.StatusBadRequest,
+			CodeMissingFightID,
+			MsgMissingFightID,
+		)
+		return
+	}
+
+	details, err := h.service.ScrapeAndSaveFightDetails(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			httpresponse.Error(
+				w,
+				http.StatusNotFound,
+				CodeFightNotFound,
+				MsgFightNotFound,
+			)
+			return
+		}
+
+		logger.Errorf("scrape_fight_details_failed id=%s err=%s", strings.TrimSpace(id), err.Error())
+		httpresponse.Error(
+			w,
+			http.StatusInternalServerError,
+			CodeScrapeFightDetailsFailed,
+			errorMessage(MsgScrapeFightDetailsFailed, err),
+		)
+		return
+	}
+
+	httpresponse.Success(
+		w,
+		http.StatusOK,
+		details,
+	)
+}
+
 // ScrapeFighter godoc
 //
 //	@Summary		Scrape and save a UFC fighter

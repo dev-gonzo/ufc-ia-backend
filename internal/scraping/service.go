@@ -248,6 +248,106 @@ func (s *Service) ScrapeAndSaveFighter(
 	return fighter, nil
 }
 
+func (s *Service) ScrapeAndSaveFightDetails(
+	ctx context.Context,
+	id string,
+) (*ufcstats.FightDetailsScrape, error) {
+	fight, err := s.repo.GetFightByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Debugf("scrape_fight_details_start fight_id=%s url=%s", strings.TrimSpace(id), strings.TrimSpace(fight.URL))
+	scraped, err := ufcstats.ScrapeFightDetailsByURL(fight.URL)
+	if err != nil {
+		logger.Errorf("scrape_fight_details_scrape_failed fight_id=%s url=%s err=%s", strings.TrimSpace(id), strings.TrimSpace(fight.URL), err.Error())
+		return nil, err
+	}
+
+	scraped.Fight.ID = fight.ID
+	scraped.Fight.EventID = fight.EventID
+	scraped.Fight.RedFighterID = fight.RedFighterID
+	scraped.Fight.BlueFighterID = fight.BlueFighterID
+
+	if _, err := s.repo.UpsertFight(ctx, scraped.Fight); err != nil {
+		logger.Errorf("scrape_fight_details_upsert_fight_failed fight_id=%s err=%s", strings.TrimSpace(id), err.Error())
+		return nil, err
+	}
+
+	var title *bool
+	title = &scraped.IsTitleBout
+	rounds := 0
+	if scraped.Rounds > 0 {
+		rounds = scraped.Rounds
+	} else if scraped.Fight.Round > 0 {
+		rounds = scraped.Fight.Round
+	}
+	var roundsPtr *int
+	if rounds > 0 {
+		roundsPtr = &rounds
+	}
+
+	var refereeID *string
+	if strings.TrimSpace(scraped.RefereeName) != "" {
+		refID, err := s.repo.UpsertReferee(ctx, scraped.RefereeName)
+		if err != nil {
+			logger.Errorf("scrape_fight_details_upsert_referee_failed fight_id=%s referee=%s err=%s", strings.TrimSpace(id), strings.TrimSpace(scraped.RefereeName), err.Error())
+			return nil, err
+		}
+		refereeID = &refID
+	}
+
+	if err := s.repo.UpsertFightDetails(ctx, *fight.ID, title, roundsPtr, refereeID); err != nil {
+		logger.Errorf("scrape_fight_details_upsert_details_failed fight_id=%s err=%s", strings.TrimSpace(id), err.Error())
+		return nil, err
+	}
+
+	for _, judge := range scraped.Judges {
+		if strings.TrimSpace(judge.Name) == "" {
+			continue
+		}
+		judgeID, err := s.repo.UpsertJudge(ctx, judge.Name)
+		if err != nil {
+			logger.Errorf("scrape_fight_details_upsert_judge_failed fight_id=%s judge=%s err=%s", strings.TrimSpace(id), strings.TrimSpace(judge.Name), err.Error())
+			return nil, err
+		}
+		if err := s.repo.UpsertFightJudgeScore(ctx, *fight.ID, judgeID, judge.RedScore, judge.BlueScore); err != nil {
+			logger.Errorf("scrape_fight_details_upsert_judge_score_failed fight_id=%s judge=%s err=%s", strings.TrimSpace(id), strings.TrimSpace(judge.Name), err.Error())
+			return nil, err
+		}
+	}
+
+	for i := range scraped.RoundStats.Red {
+		rs := scraped.RoundStats.Red[i]
+		if err := s.repo.UpsertFightRoundStat(ctx, *fight.ID, "red", &rs); err != nil {
+			logger.Errorf("scrape_fight_details_upsert_round_stat_failed fight_id=%s round=%d corner=red err=%s", strings.TrimSpace(id), rs.Round, err.Error())
+			return nil, err
+		}
+	}
+	for i := range scraped.RoundStats.Blue {
+		rs := scraped.RoundStats.Blue[i]
+		if err := s.repo.UpsertFightRoundStat(ctx, *fight.ID, "blue", &rs); err != nil {
+			logger.Errorf("scrape_fight_details_upsert_round_stat_failed fight_id=%s round=%d corner=blue err=%s", strings.TrimSpace(id), rs.Round, err.Error())
+			return nil, err
+		}
+	}
+
+	for i := range scraped.Bonuses {
+		b := scraped.Bonuses[i]
+		if strings.TrimSpace(b.Type) == "" {
+			continue
+		}
+		recipient := strings.TrimSpace(b.Recipient)
+		if err := s.repo.UpsertFightBonus(ctx, *fight.ID, b.Type, recipient); err != nil {
+			logger.Errorf("scrape_fight_details_upsert_bonus_failed fight_id=%s type=%s err=%s", strings.TrimSpace(id), strings.TrimSpace(b.Type), err.Error())
+			return nil, err
+		}
+	}
+
+	logger.Debugf("scrape_fight_details_done fight_id=%s url=%s", strings.TrimSpace(id), strings.TrimSpace(fight.URL))
+	return scraped, nil
+}
+
 func (s *Service) tryUpsertUFCAthleteDetails(ctx context.Context, fighterID string, fighterName string) error {
 	fighterName = strings.TrimSpace(fighterName)
 	if fighterName == "" || strings.TrimSpace(fighterID) == "" {

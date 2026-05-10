@@ -49,6 +49,18 @@ func RegisterScrapingRoutes(
 	)
 
 	mux.Handle(
+		"/scrape/fight-details",
+		auth.RequireRoles(
+			"admin",
+			"manager",
+		)(
+			http.HandlerFunc(
+				handler.ScrapeFightDetails,
+			),
+		),
+	)
+
+	mux.Handle(
 		"/scrape/fighter",
 		auth.RequireRoles(
 			"admin",

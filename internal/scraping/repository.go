@@ -2,6 +2,7 @@ package scraping
 
 import (
 	"context"
+	"database/sql"
 	"strings"
 	"time"
 	"ufc-backend/internal/scraping/tapology"
@@ -125,6 +126,54 @@ func (r *Repository) GetEventByID(ctx context.Context, id string) (*ufcstats.Eve
 	e.UpdatedAt = &updatedAt
 
 	return &e, nil
+}
+
+func (r *Repository) GetFightByID(ctx context.Context, id string) (*ufcstats.Fight, error) {
+	var (
+		f         ufcstats.Fight
+		fightID   string
+		eventID   string
+		redID     sql.NullString
+		blueID    sql.NullString
+		createdAt time.Time
+		updatedAt time.Time
+	)
+
+	err := r.db.QueryRow(ctx, `
+		SELECT id, event_id, url, weight_class, method, round, time, winner, red_fighter_id, blue_fighter_id, created_at, updated_at
+		FROM fights
+		WHERE id = $1
+	`, id).Scan(
+		&fightID,
+		&eventID,
+		&f.URL,
+		&f.WeightClass,
+		&f.Method,
+		&f.Round,
+		&f.Time,
+		&f.Winner,
+		&redID,
+		&blueID,
+		&createdAt,
+		&updatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	f.ID = &fightID
+	f.EventID = &eventID
+	if redID.Valid {
+		v := redID.String
+		f.RedFighterID = &v
+	}
+	if blueID.Valid {
+		v := blueID.String
+		f.BlueFighterID = &v
+	}
+	f.CreatedAt = &createdAt
+	f.UpdatedAt = &updatedAt
+	return &f, nil
 }
 
 func (r *Repository) UpsertFighter(ctx context.Context, fighter *ufcstats.Fighter) (string, error) {
@@ -276,6 +325,156 @@ func (r *Repository) UpsertFighterUFCDetails(ctx context.Context, fighterID stri
 		history,
 		qa,
 	)
+	return err
+}
+
+func (r *Repository) UpsertReferee(ctx context.Context, name string) (string, error) {
+	var id string
+	err := r.db.QueryRow(ctx, `
+		INSERT INTO referees (name, updated_at)
+		VALUES ($1, NOW())
+		ON CONFLICT (name) DO UPDATE SET
+			updated_at = NOW()
+		RETURNING id
+	`, strings.TrimSpace(name)).Scan(&id)
+	if err != nil {
+		return "", err
+	}
+	return id, nil
+}
+
+func (r *Repository) UpsertJudge(ctx context.Context, name string) (string, error) {
+	var id string
+	err := r.db.QueryRow(ctx, `
+		INSERT INTO judges (name, updated_at)
+		VALUES ($1, NOW())
+		ON CONFLICT (name) DO UPDATE SET
+			updated_at = NOW()
+		RETURNING id
+	`, strings.TrimSpace(name)).Scan(&id)
+	if err != nil {
+		return "", err
+	}
+	return id, nil
+}
+
+func (r *Repository) UpsertFightDetails(ctx context.Context, fightID string, isTitleBout *bool, rounds *int, refereeID *string) error {
+	_, err := r.db.Exec(ctx, `
+		INSERT INTO fight_details (fight_id, is_title_bout, rounds, referee_id, updated_at)
+		VALUES ($1, $2, $3, $4, NOW())
+		ON CONFLICT (fight_id) DO UPDATE SET
+			is_title_bout = EXCLUDED.is_title_bout,
+			rounds = EXCLUDED.rounds,
+			referee_id = EXCLUDED.referee_id,
+			updated_at = NOW()
+	`, fightID, isTitleBout, rounds, refereeID)
+	return err
+}
+
+func (r *Repository) UpsertFightJudgeScore(ctx context.Context, fightID string, judgeID string, redScore int, blueScore int) error {
+	_, err := r.db.Exec(ctx, `
+		INSERT INTO fight_judges (fight_id, judge_id, red_score, blue_score, updated_at)
+		VALUES ($1, $2, $3, $4, NOW())
+		ON CONFLICT (fight_id, judge_id) DO UPDATE SET
+			red_score = EXCLUDED.red_score,
+			blue_score = EXCLUDED.blue_score,
+			updated_at = NOW()
+	`, fightID, judgeID, redScore, blueScore)
+	return err
+}
+
+func (r *Repository) UpsertFightRoundStat(ctx context.Context, fightID string, corner string, s *ufcstats.RoundFighterStat) error {
+	_, err := r.db.Exec(ctx, `
+		INSERT INTO fight_round_stats (
+			fight_id,
+			round,
+			corner,
+			kd,
+			sig_landed,
+			sig_attempted,
+			total_landed,
+			total_attempted,
+			td_landed,
+			td_attempted,
+			sub_att,
+			rev,
+			ctrl,
+			head_landed,
+			head_attempted,
+			body_landed,
+			body_attempted,
+			leg_landed,
+			leg_attempted,
+			distance_landed,
+			distance_attempted,
+			clinch_landed,
+			clinch_attempted,
+			ground_landed,
+			ground_attempted,
+			updated_at
+		)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,NOW())
+		ON CONFLICT (fight_id, round, corner) DO UPDATE SET
+			kd = EXCLUDED.kd,
+			sig_landed = EXCLUDED.sig_landed,
+			sig_attempted = EXCLUDED.sig_attempted,
+			total_landed = EXCLUDED.total_landed,
+			total_attempted = EXCLUDED.total_attempted,
+			td_landed = EXCLUDED.td_landed,
+			td_attempted = EXCLUDED.td_attempted,
+			sub_att = EXCLUDED.sub_att,
+			rev = EXCLUDED.rev,
+			ctrl = EXCLUDED.ctrl,
+			head_landed = EXCLUDED.head_landed,
+			head_attempted = EXCLUDED.head_attempted,
+			body_landed = EXCLUDED.body_landed,
+			body_attempted = EXCLUDED.body_attempted,
+			leg_landed = EXCLUDED.leg_landed,
+			leg_attempted = EXCLUDED.leg_attempted,
+			distance_landed = EXCLUDED.distance_landed,
+			distance_attempted = EXCLUDED.distance_attempted,
+			clinch_landed = EXCLUDED.clinch_landed,
+			clinch_attempted = EXCLUDED.clinch_attempted,
+			ground_landed = EXCLUDED.ground_landed,
+			ground_attempted = EXCLUDED.ground_attempted,
+			updated_at = NOW()
+	`,
+		fightID,
+		s.Round,
+		strings.TrimSpace(corner),
+		s.KD,
+		s.SigLanded,
+		s.SigAttempted,
+		s.TotalLanded,
+		s.TotalAttempted,
+		s.TDLanded,
+		s.TDAttempted,
+		s.SubAtt,
+		s.Rev,
+		s.CTRL,
+		s.HeadLanded,
+		s.HeadAttempted,
+		s.BodyLanded,
+		s.BodyAttempted,
+		s.LegLanded,
+		s.LegAttempted,
+		s.DistanceLanded,
+		s.DistanceAttempted,
+		s.ClinchLanded,
+		s.ClinchAttempted,
+		s.GroundLanded,
+		s.GroundAttempted,
+	)
+	return err
+}
+
+func (r *Repository) UpsertFightBonus(ctx context.Context, fightID string, bonusType string, recipientCorner string) error {
+	_, err := r.db.Exec(ctx, `
+		INSERT INTO fight_bonuses (fight_id, bonus_type, recipient_corner, updated_at)
+		VALUES ($1, $2, $3, NOW())
+		ON CONFLICT (fight_id, bonus_type, recipient_corner) DO UPDATE SET
+			updated_at = NOW()
+	`, fightID, strings.TrimSpace(bonusType), strings.TrimSpace(recipientCorner))
 	return err
 }
 

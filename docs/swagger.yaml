@@ -84,6 +84,49 @@ definitions:
       winner:
         type: string
     type: object
+  ufcstats.FightBonus:
+    properties:
+      recipient:
+        type: string
+      type:
+        type: string
+    type: object
+  ufcstats.FightDetailsScrape:
+    properties:
+      blue:
+        $ref: '#/definitions/ufcstats.Fighter'
+      bonuses:
+        items:
+          $ref: '#/definitions/ufcstats.FightBonus'
+        type: array
+      fight:
+        $ref: '#/definitions/ufcstats.Fight'
+      is_title_bout:
+        type: boolean
+      judges:
+        items:
+          $ref: '#/definitions/ufcstats.JudgeScore'
+        type: array
+      red:
+        $ref: '#/definitions/ufcstats.Fighter'
+      referee_name:
+        type: string
+      round_stats:
+        $ref: '#/definitions/ufcstats.FightRoundStats'
+      rounds:
+        type: integer
+    type: object
+  ufcstats.FightRoundStats:
+    properties:
+      blue:
+        items:
+          $ref: '#/definitions/ufcstats.RoundFighterStat'
+        type: array
+      red:
+        items:
+          $ref: '#/definitions/ufcstats.RoundFighterStat'
+        type: array
+    type: object
   ufcstats.Fighter:
     properties:
       created_at:
@@ -110,6 +153,64 @@ definitions:
         type: string
       weight:
         type: string
+    type: object
+  ufcstats.JudgeScore:
+    properties:
+      blue_score:
+        type: integer
+      name:
+        type: string
+      red_score:
+        type: integer
+    type: object
+  ufcstats.RoundFighterStat:
+    properties:
+      body_attempted:
+        type: integer
+      body_landed:
+        type: integer
+      clinch_attempted:
+        type: integer
+      clinch_landed:
+        type: integer
+      ctrl:
+        type: string
+      distance_attempted:
+        type: integer
+      distance_landed:
+        type: integer
+      ground_attempted:
+        type: integer
+      ground_landed:
+        type: integer
+      head_attempted:
+        type: integer
+      head_landed:
+        type: integer
+      kd:
+        type: integer
+      leg_attempted:
+        type: integer
+      leg_landed:
+        type: integer
+      rev:
+        type: integer
+      round:
+        type: integer
+      sig_attempted:
+        type: integer
+      sig_landed:
+        type: integer
+      sub_att:
+        type: integer
+      td_attempted:
+        type: integer
+      td_landed:
+        type: integer
+      total_attempted:
+        type: integer
+      total_landed:
+        type: integer
     type: object
   users.ChangePasswordInput:
     properties:
@@ -277,6 +378,40 @@ paths:
       security:
       - BearerAuth: []
       summary: Scrape and save UFC events
+      tags:
+      - Scraping
+  /scrape/fight-details:
+    get:
+      description: Given an internal fight UUID (from fights table), scrapes fight-details
+        page and stores referee, judges, and stats (totals and per round)
+      parameters:
+      - description: Fight UUID (from fights table)
+        in: query
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ufcstats.FightDetailsScrape'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpresponse.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httpresponse.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpresponse.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Scrape and save UFC fight details and stats
       tags:
       - Scraping
   /scrape/fighter:
