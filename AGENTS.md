@@ -41,3 +41,9 @@ The next logical step for the system is to process individual fights within thos
 1. Fetch events where `event_sync = false`.
 2. Scrape the event URL to extract individual fight details (fighters, weight class, method, round, time).
 3. Persist the fight data and mark the event as `event_sync = true`.
+
+# Testing
+- Will not be implemented. (!important)
+
+# New endpoints and changes
+- Always document endpoints in Swagger according to project standards.

@@ -37,6 +37,30 @@ func RegisterScrapingRoutes(
 	)
 
 	mux.Handle(
+		"/scrape/event-fights",
+		auth.RequireRoles(
+			"admin",
+			"manager",
+		)(
+			http.HandlerFunc(
+				handler.ScrapeEventFights,
+			),
+		),
+	)
+
+	mux.Handle(
+		"/scrape/fighter",
+		auth.RequireRoles(
+			"admin",
+			"manager",
+		)(
+			http.HandlerFunc(
+				handler.ScrapeFighter,
+			),
+		),
+	)
+
+	mux.Handle(
 		"/scrape/tapology/events",
 		auth.RequireRoles(
 			"admin",

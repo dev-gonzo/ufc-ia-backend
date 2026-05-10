@@ -1,6 +1,7 @@
 package ufcstats
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
@@ -15,7 +16,7 @@ func parseEvents(
 	)
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %s", ErrParseFailed, err.Error())
 	}
 
 	var events []Event
@@ -27,10 +28,6 @@ func parseEvents(
 		link := selection.Find("a").First()
 		name := strings.TrimSpace(link.Text())
 		url, _ := link.Attr("href")
-
-		// No ufcstats.com/statistics/events/completed:
-		// td[0] tem o nome e o link, e também a data em um span
-		// td[1] tem a localização
 
 		date := strings.TrimSpace(
 			selection.Find("td").Eq(0).Find("span").Text(),
@@ -55,6 +52,10 @@ func parseEvents(
 		)
 	})
 
+	if len(events) == 0 {
+		return nil, fmt.Errorf("%w: no events found", ErrMissingRequiredField)
+	}
+
 	return events, nil
 }
 
@@ -63,7 +64,7 @@ func parseEventDetail(html string, url string) (*Event, error) {
 		strings.NewReader(html),
 	)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %s", ErrParseFailed, err.Error())
 	}
 
 	name := strings.TrimSpace(
@@ -79,6 +80,10 @@ func parseEventDetail(html string, url string) (*Event, error) {
 		document.Find(".b-list__box-list-item").Eq(1).Text(),
 	)
 	locationStr = strings.TrimSpace(strings.Replace(locationStr, "Location:", "", 1))
+
+	if strings.TrimSpace(name) == "" {
+		return nil, fmt.Errorf("%w: event name not found", ErrMissingRequiredField)
+	}
 
 	return &Event{
 		Name:     name,

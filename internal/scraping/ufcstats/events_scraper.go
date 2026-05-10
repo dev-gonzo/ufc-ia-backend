@@ -23,3 +23,12 @@ func ScrapeEventByID(id string) (*Event, error) {
 
 	return parseEventDetail(html, url)
 }
+
+func ScrapeEventByURL(url string) (*Event, error) {
+	html, err := fetchHTML(url)
+	if err != nil {
+		return nil, err
+	}
+
+	return parseEventDetail(html, url)
+}

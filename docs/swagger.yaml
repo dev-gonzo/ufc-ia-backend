@@ -57,6 +57,60 @@ definitions:
       url:
         type: string
     type: object
+  ufcstats.Fight:
+    properties:
+      blue_fighter_id:
+        type: string
+      created_at:
+        type: string
+      event_id:
+        type: string
+      id:
+        type: string
+      method:
+        type: string
+      red_fighter_id:
+        type: string
+      round:
+        type: integer
+      time:
+        type: string
+      updated_at:
+        type: string
+      url:
+        type: string
+      weight_class:
+        type: string
+      winner:
+        type: string
+    type: object
+  ufcstats.Fighter:
+    properties:
+      created_at:
+        type: string
+      dob:
+        type: string
+      height:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      nickname:
+        type: string
+      reach:
+        type: string
+      record:
+        type: string
+      stance:
+        type: string
+      updated_at:
+        type: string
+      url:
+        type: string
+      weight:
+        type: string
+    type: object
   users.ChangePasswordInput:
     properties:
       current_password:
@@ -140,8 +194,8 @@ paths:
       - auth
   /scrape/event:
     get:
-      description: Get event details from ufcstats.com/event-details/{id} and save
-        to DB
+      description: Get event details from ufcstats.com/event-details/{id}, save to
+        DB, then scrape fights and fighters for this event and mark event_sync=true
       parameters:
       - description: Event ID hash
         in: query
@@ -164,6 +218,46 @@ paths:
       summary: Scrape and save a single UFC event
       tags:
       - Scraping
+  /scrape/event-fights:
+    get:
+      description: If id is provided, loads event URL from DB. If url is provided
+        and event does not exist, scrapes event and stores it, then scrapes fights.
+        Upserts fights and fighters.
+      parameters:
+      - description: Event UUID (from events table)
+        in: query
+        name: id
+        type: string
+      - description: Event URL (ufcstats.com/event-details/...)
+        in: query
+        name: url
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/ufcstats.Fight'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpresponse.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httpresponse.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpresponse.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Scrape and save UFC event fights
+      tags:
+      - Scraping
   /scrape/events:
     get:
       description: Get all completed UFC events from ufcstats.com and save to DB
@@ -183,6 +277,39 @@ paths:
       security:
       - BearerAuth: []
       summary: Scrape and save UFC events
+      tags:
+      - Scraping
+  /scrape/fighter:
+    get:
+      description: If id is provided, builds ufcstats.com/fighter-details/{id}. If
+        url is provided, uses it directly. Upserts fighter data.
+      parameters:
+      - description: Fighter ID hash (fighter-details/{id})
+        in: query
+        name: id
+        type: string
+      - description: Fighter URL (ufcstats.com/fighter-details/...)
+        in: query
+        name: url
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ufcstats.Fighter'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpresponse.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpresponse.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Scrape and save a UFC fighter
       tags:
       - Scraping
   /scrape/tapology/events:

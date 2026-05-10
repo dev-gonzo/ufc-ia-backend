@@ -2,17 +2,25 @@ package scraping
 
 import (
 	"errors"
-	"log"
 	"net/http"
 	"regexp"
 	"strings"
 
+	"github.com/jackc/pgx/v5"
 	"ufc-backend/internal/scraping/tapology"
 	"ufc-backend/internal/shared/http_response"
+	"ufc-backend/internal/shared/logger"
 )
 
 type Handler struct {
 	service *Service
+}
+
+func errorMessage(defaultMessage string, err error) string {
+	if logger.DebugEnabled() && err != nil {
+		return err.Error()
+	}
+	return defaultMessage
 }
 
 func NewHandler(service *Service) *Handler {
@@ -39,12 +47,13 @@ func (h *Handler) ScrapeEvents(
 	events, err := h.service.ScrapeAndSaveEvents(r.Context())
 
 	if err != nil {
+		logger.Errorf("scrape_events_failed err=%s", err.Error())
 
 		httpresponse.Error(
 			w,
 			http.StatusInternalServerError,
-			"SCRAPE_EVENTS_FAILED",
-			"failed to scrape events",
+			CodeScrapeEventsFailed,
+			errorMessage(MsgScrapeEventsFailed, err),
 		)
 
 		return
@@ -60,7 +69,7 @@ func (h *Handler) ScrapeEvents(
 // ScrapeSingleEvent godoc
 //
 //	@Summary		Scrape and save a single UFC event
-//	@Description	Get event details from ufcstats.com/event-details/{id} and save to DB
+//	@Description	Get event details from ufcstats.com/event-details/{id}, save to DB, then scrape fights and fighters for this event and mark event_sync=true
 //	@Tags			Scraping
 //	@Produce		json
 //	@Security		BearerAuth
@@ -78,8 +87,8 @@ func (h *Handler) ScrapeSingleEvent(
 		httpresponse.Error(
 			w,
 			http.StatusBadRequest,
-			"MISSING_ID",
-			"The id query parameter is required",
+			CodeMissingID,
+			MsgMissingID,
 		)
 		return
 	}
@@ -87,11 +96,12 @@ func (h *Handler) ScrapeSingleEvent(
 	event, err := h.service.ScrapeAndSaveEventByID(r.Context(), id)
 
 	if err != nil {
+		logger.Errorf("scrape_event_failed id=%s err=%s", id, err.Error())
 		httpresponse.Error(
 			w,
 			http.StatusInternalServerError,
-			"SCRAPE_EVENT_FAILED",
-			"failed to scrape event",
+			CodeScrapeEventFailed,
+			errorMessage(MsgScrapeEventFailed, err),
 		)
 		return
 	}
@@ -100,6 +110,116 @@ func (h *Handler) ScrapeSingleEvent(
 		w,
 		http.StatusOK,
 		event,
+	)
+}
+
+// ScrapeEventFights godoc
+//
+//	@Summary		Scrape and save UFC event fights
+//	@Description	If id is provided, loads event URL from DB. If url is provided and event does not exist, scrapes event and stores it, then scrapes fights. Upserts fights and fighters.
+//	@Tags			Scraping
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	query		string	false	"Event UUID (from events table)"
+//	@Param			url	query		string	false	"Event URL (ufcstats.com/event-details/...)"
+//	@Success		200	{array}	ufcstats.Fight
+//	@Failure		400	{object}	httpresponse.ErrorResponse
+//	@Failure		404	{object}	httpresponse.ErrorResponse
+//	@Failure		500	{object}	httpresponse.ErrorResponse
+//	@Router			/scrape/event-fights [get]
+func (h *Handler) ScrapeEventFights(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+	id := r.URL.Query().Get("id")
+	url := r.URL.Query().Get("url")
+
+	if strings.TrimSpace(id) == "" && strings.TrimSpace(url) == "" {
+		httpresponse.Error(
+			w,
+			http.StatusBadRequest,
+			CodeMissingIDOrURL,
+			MsgMissingIDOrURL,
+		)
+		return
+	}
+
+	fights, err := h.service.ScrapeAndSaveEventFights(r.Context(), id, url)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			logger.Errorf("scrape_event_fights_event_not_found id=%s url=%s", strings.TrimSpace(id), strings.TrimSpace(url))
+			httpresponse.Error(
+				w,
+				http.StatusNotFound,
+				CodeEventNotFound,
+				MsgEventNotFound,
+			)
+			return
+		}
+
+		logger.Errorf("scrape_event_fights_failed id=%s url=%s err=%s", strings.TrimSpace(id), strings.TrimSpace(url), err.Error())
+		httpresponse.Error(
+			w,
+			http.StatusInternalServerError,
+			CodeScrapeEventFightsFailed,
+			errorMessage(MsgScrapeEventFightsFailed, err),
+		)
+		return
+	}
+
+	httpresponse.Success(
+		w,
+		http.StatusOK,
+		fights,
+	)
+}
+
+// ScrapeFighter godoc
+//
+//	@Summary		Scrape and save a UFC fighter
+//	@Description	If id is provided, builds ufcstats.com/fighter-details/{id}. If url is provided, uses it directly. Upserts fighter data.
+//	@Tags			Scraping
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	query		string	false	"Fighter ID hash (fighter-details/{id})"
+//	@Param			url	query		string	false	"Fighter URL (ufcstats.com/fighter-details/...)"
+//	@Success		200	{object}	ufcstats.Fighter
+//	@Failure		400	{object}	httpresponse.ErrorResponse
+//	@Failure		500	{object}	httpresponse.ErrorResponse
+//	@Router			/scrape/fighter [get]
+func (h *Handler) ScrapeFighter(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+	id := r.URL.Query().Get("id")
+	url := r.URL.Query().Get("url")
+
+	if strings.TrimSpace(id) == "" && strings.TrimSpace(url) == "" {
+		httpresponse.Error(
+			w,
+			http.StatusBadRequest,
+			CodeMissingFighterIDOrURL,
+			MsgMissingFighterIDOrURL,
+		)
+		return
+	}
+
+	fighter, err := h.service.ScrapeAndSaveFighter(r.Context(), id, url)
+	if err != nil {
+		logger.Errorf("scrape_fighter_failed id=%s url=%s err=%s", strings.TrimSpace(id), strings.TrimSpace(url), err.Error())
+		httpresponse.Error(
+			w,
+			http.StatusInternalServerError,
+			CodeScrapeFighterFailed,
+			errorMessage(MsgScrapeFighterFailed, err),
+		)
+		return
+	}
+
+	httpresponse.Success(
+		w,
+		http.StatusOK,
+		fighter,
 	)
 }
 
@@ -119,14 +239,14 @@ func (h *Handler) ScrapeTapologyUFCEvents(
 ) {
 	events, err := h.service.ScrapeAndSaveTapologyUFCEvents(r.Context())
 	if err != nil {
-		log.Printf("tapology: handler failed err=%s", redactTapologyError(err.Error()))
+		logger.Errorf("tapology_handler_failed err=%s", redactTapologyError(err.Error()))
 
 		if errors.Is(err, tapology.ErrMissingScrapingBrowserWS) {
 			httpresponse.Error(
 				w,
 				http.StatusInternalServerError,
-				"SCRAPING_BROWSER_WS_URL_MISSING",
-				"missing scraping browser configuration",
+				CodeScrapingBrowserWSURLMissing,
+				MsgScrapingBrowserWSURLMissing,
 			)
 			return
 		}
@@ -134,8 +254,8 @@ func (h *Handler) ScrapeTapologyUFCEvents(
 		httpresponse.Error(
 			w,
 			http.StatusInternalServerError,
-			"SCRAPE_TAPOLOGY_FAILED",
-			"failed to scrape tapology events",
+			CodeScrapeTapologyFailed,
+			errorMessage(MsgScrapeTapologyFailed, err),
 		)
 		return
 	}

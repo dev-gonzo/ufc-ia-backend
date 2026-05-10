@@ -74,7 +74,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get event details from ufcstats.com/event-details/{id} and save to DB",
+                "description": "Get event details from ufcstats.com/event-details/{id}, save to DB, then scrape fights and fighters for this event and mark event_sync=true",
                 "produces": [
                     "application/json"
                 ],
@@ -96,6 +96,66 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/ufcstats.Event"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httpresponse.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/scrape/event-fights": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "If id is provided, loads event URL from DB. If url is provided and event does not exist, scrapes event and stores it, then scrapes fights. Upserts fights and fighters.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Scraping"
+                ],
+                "summary": "Scrape and save UFC event fights",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event UUID (from events table)",
+                        "name": "id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Event URL (ufcstats.com/event-details/...)",
+                        "name": "url",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ufcstats.Fight"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httpresponse.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httpresponse.ErrorResponse"
                         }
                     },
                     "500": {
@@ -130,6 +190,57 @@ const docTemplate = `{
                             "items": {
                                 "$ref": "#/definitions/ufcstats.Event"
                             }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httpresponse.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/scrape/fighter": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "If id is provided, builds ufcstats.com/fighter-details/{id}. If url is provided, uses it directly. Upserts fighter data.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Scraping"
+                ],
+                "summary": "Scrape and save a UFC fighter",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Fighter ID hash (fighter-details/{id})",
+                        "name": "id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Fighter URL (ufcstats.com/fighter-details/...)",
+                        "name": "url",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ufcstats.Fighter"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httpresponse.ErrorResponse"
                         }
                     },
                     "500": {
@@ -459,6 +570,88 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "ufcstats.Fight": {
+            "type": "object",
+            "properties": {
+                "blue_fighter_id": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "event_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "method": {
+                    "type": "string"
+                },
+                "red_fighter_id": {
+                    "type": "string"
+                },
+                "round": {
+                    "type": "integer"
+                },
+                "time": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                },
+                "weight_class": {
+                    "type": "string"
+                },
+                "winner": {
+                    "type": "string"
+                }
+            }
+        },
+        "ufcstats.Fighter": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "dob": {
+                    "type": "string"
+                },
+                "height": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "nickname": {
+                    "type": "string"
+                },
+                "reach": {
+                    "type": "string"
+                },
+                "record": {
+                    "type": "string"
+                },
+                "stance": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                },
+                "weight": {
                     "type": "string"
                 }
             }

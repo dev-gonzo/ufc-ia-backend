@@ -42,6 +42,15 @@ func (r *Repository) UpsertEvent(ctx context.Context, event *ufcstats.Event) err
 	return err
 }
 
+func (r *Repository) MarkEventSynced(ctx context.Context, id string) error {
+	_, err := r.db.Exec(ctx, `
+		UPDATE events
+		SET event_sync = true, updated_at = NOW()
+		WHERE id = $1
+	`, id)
+	return err
+}
+
 func (r *Repository) UpsertTapologyEvents(ctx context.Context, events []tapology.Event) error {
 	for _, event := range events {
 		if err := r.UpsertTapologyEvent(ctx, &event); err != nil {
@@ -115,4 +124,89 @@ func (r *Repository) GetEventByID(ctx context.Context, id string) (*ufcstats.Eve
 	e.UpdatedAt = &updatedAt
 
 	return &e, nil
+}
+
+func (r *Repository) UpsertFighter(ctx context.Context, fighter *ufcstats.Fighter) (string, error) {
+	var id string
+
+	err := r.db.QueryRow(ctx, `
+		INSERT INTO fighters (name, url, record, nickname, height, weight, reach, stance, dob, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+		ON CONFLICT (url) DO UPDATE SET
+			name = EXCLUDED.name,
+			record = EXCLUDED.record,
+			nickname = EXCLUDED.nickname,
+			height = EXCLUDED.height,
+			weight = EXCLUDED.weight,
+			reach = EXCLUDED.reach,
+			stance = EXCLUDED.stance,
+			dob = EXCLUDED.dob,
+			updated_at = NOW()
+		RETURNING id
+	`,
+		fighter.Name,
+		fighter.URL,
+		fighter.Record,
+		fighter.Nickname,
+		fighter.Height,
+		fighter.Weight,
+		fighter.Reach,
+		fighter.Stance,
+		fighter.DOB,
+	).Scan(&id)
+	if err != nil {
+		return "", err
+	}
+
+	return id, nil
+}
+
+func (r *Repository) UpsertFight(ctx context.Context, fight *ufcstats.Fight) (string, error) {
+	var id string
+	eventID := ""
+	if fight.EventID != nil {
+		eventID = *fight.EventID
+	}
+
+	err := r.db.QueryRow(ctx, `
+		INSERT INTO fights (
+			event_id,
+			url,
+			weight_class,
+			method,
+			round,
+			time,
+			winner,
+			red_fighter_id,
+			blue_fighter_id,
+			updated_at
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
+		ON CONFLICT (url) DO UPDATE SET
+			event_id = EXCLUDED.event_id,
+			weight_class = EXCLUDED.weight_class,
+			method = EXCLUDED.method,
+			round = EXCLUDED.round,
+			time = EXCLUDED.time,
+			winner = EXCLUDED.winner,
+			red_fighter_id = EXCLUDED.red_fighter_id,
+			blue_fighter_id = EXCLUDED.blue_fighter_id,
+			updated_at = NOW()
+		RETURNING id
+	`,
+		eventID,
+		fight.URL,
+		fight.WeightClass,
+		fight.Method,
+		fight.Round,
+		fight.Time,
+		fight.Winner,
+		fight.RedFighterID,
+		fight.BlueFighterID,
+	).Scan(&id)
+	if err != nil {
+		return "", err
+	}
+
+	return id, nil
 }
