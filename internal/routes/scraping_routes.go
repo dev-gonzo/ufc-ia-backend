@@ -9,9 +9,8 @@ import (
 
 func RegisterScrapingRoutes(
 	mux *http.ServeMux,
+	handler *scraping.Handler,
 ) {
-
-	handler := scraping.NewHandler()
 
 	mux.Handle(
 		"/scrape/events",
@@ -24,4 +23,29 @@ func RegisterScrapingRoutes(
 			),
 		),
 	)
+
+	mux.Handle(
+		"/scrape/event",
+		auth.RequireRoles(
+			"admin",
+			"manager",
+		)(
+			http.HandlerFunc(
+				handler.ScrapeSingleEvent,
+			),
+		),
+	)
+
+	mux.Handle(
+		"/scrape/tapology/events",
+		auth.RequireRoles(
+			"admin",
+			"manager",
+		)(
+			http.HandlerFunc(
+				handler.ScrapeTapologyUFCEvents,
+			),
+		),
+	)
+
 }

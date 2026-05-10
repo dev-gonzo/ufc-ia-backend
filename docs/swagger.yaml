@@ -29,13 +29,30 @@ definitions:
       error:
         $ref: '#/definitions/httpresponse.ErrorBody'
     type: object
+  tapology.Event:
+    properties:
+      details:
+        type: string
+      name:
+        type: string
+      url:
+        type: string
+    type: object
   ufcstats.Event:
     properties:
+      created_at:
+        type: string
       date:
+        type: string
+      event_sync:
+        type: boolean
+      id:
         type: string
       location:
         type: string
       name:
+        type: string
+      updated_at:
         type: string
       url:
         type: string
@@ -121,9 +138,35 @@ paths:
       summary: Login
       tags:
       - auth
+  /scrape/event:
+    get:
+      description: Get event details from ufcstats.com/event-details/{id} and save
+        to DB
+      parameters:
+      - description: Event ID hash
+        in: query
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/ufcstats.Event'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpresponse.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Scrape and save a single UFC event
+      tags:
+      - Scraping
   /scrape/events:
     get:
-      description: Get all completed UFC events from ufcstats.com
+      description: Get all completed UFC events from ufcstats.com and save to DB
       produces:
       - application/json
       responses:
@@ -139,7 +182,29 @@ paths:
             $ref: '#/definitions/httpresponse.ErrorResponse'
       security:
       - BearerAuth: []
-      summary: Scrape UFC events
+      summary: Scrape and save UFC events
+      tags:
+      - Scraping
+  /scrape/tapology/events:
+    get:
+      description: Fetch UFC promotion events list from Tapology via remote scraping
+        browser and save to DB
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/tapology.Event'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httpresponse.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Scrape and save UFC events from Tapology
       tags:
       - Scraping
   /users:

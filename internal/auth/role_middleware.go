@@ -3,7 +3,7 @@ package auth
 import (
 	"net/http"
 
-	"ufc-backend/internal/shared/httpresponse"
+	"ufc-backend/internal/shared/http_response"
 )
 
 func RequireRoles(

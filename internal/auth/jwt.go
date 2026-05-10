@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"errors"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -43,7 +42,7 @@ func ValidateToken(tokenString string) (*Claims, error) {
 			_, ok := token.Method.(*jwt.SigningMethodHMAC)
 
 			if !ok {
-				return nil, errors.New("invalid signing method")
+				return nil, ErrInvalidSigningMethod
 			}
 
 			return jwtSecret, nil
@@ -57,7 +56,7 @@ func ValidateToken(tokenString string) (*Claims, error) {
 	claims, ok := token.Claims.(*Claims)
 
 	if !ok || !token.Valid {
-		return nil, errors.New("invalid token")
+		return nil, ErrInvalidToken
 	}
 
 	return claims, nil

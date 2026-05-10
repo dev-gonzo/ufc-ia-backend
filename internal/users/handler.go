@@ -2,10 +2,11 @@ package users
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"ufc-backend/internal/auth"
-	"ufc-backend/internal/shared/httpresponse"
+	"ufc-backend/internal/shared/http_response"
 )
 
 type Handler struct {
@@ -70,16 +71,66 @@ func (h *Handler) Create(
 	user, err := h.service.Create(body)
 
 	if err != nil {
+		if errors.Is(err, ErrInvalidEmail) {
+			httpresponse.Error(
+				w,
+				http.StatusBadRequest,
+				"INVALID_EMAIL",
+				"invalid email",
+			)
+			return
+		}
+
+		if errors.Is(err, ErrInvalidUsername) {
+			httpresponse.Error(
+				w,
+				http.StatusBadRequest,
+				"INVALID_USERNAME",
+				"invalid username",
+			)
+			return
+		}
+
+		if errors.Is(err, ErrInvalidPassword) {
+			httpresponse.Error(
+				w,
+				http.StatusBadRequest,
+				"INVALID_PASSWORD",
+				"invalid password",
+			)
+			return
+		}
+
+		if errors.Is(err, ErrEmailInUse) {
+			httpresponse.Error(
+				w,
+				http.StatusConflict,
+				"EMAIL_ALREADY_EXISTS",
+				"email already exists",
+			)
+			return
+		}
+
+		if errors.Is(err, ErrUsernameInUse) {
+			httpresponse.Error(
+				w,
+				http.StatusConflict,
+				"USERNAME_ALREADY_EXISTS",
+				"username already exists",
+			)
+			return
+		}
+
 		httpresponse.Error(
 			w,
-			http.StatusBadRequest,
+			http.StatusInternalServerError,
 			"CREATE_USER_FAILED",
-			err.Error(),
+			"failed to create user",
 		)
 		return
 	}
 
-	httpresponse.JSON(
+	httpresponse.Success(
 		w,
 		http.StatusCreated,
 		user,
@@ -126,7 +177,7 @@ func (h *Handler) List(
 		return
 	}
 
-	httpresponse.JSON(
+	httpresponse.Success(
 		w,
 		http.StatusOK,
 		users,
@@ -214,20 +265,40 @@ func (h *Handler) ChangePassword(
 	)
 
 	if err != nil {
+		if errors.Is(err, ErrInvalidPassword) {
+			httpresponse.Error(
+				w,
+				http.StatusBadRequest,
+				"INVALID_PASSWORD",
+				"invalid password",
+			)
+			return
+		}
+
+		if errors.Is(err, auth.ErrInvalidCredentials) {
+			httpresponse.Error(
+				w,
+				http.StatusUnauthorized,
+				"INVALID_CREDENTIALS",
+				"invalid credentials",
+			)
+			return
+		}
+
 		httpresponse.Error(
 			w,
-			http.StatusBadRequest,
+			http.StatusInternalServerError,
 			"CHANGE_PASSWORD_FAILED",
-			err.Error(),
+			"failed to change password",
 		)
 		return
 	}
 
-	httpresponse.JSON(
+	httpresponse.Success(
 		w,
 		http.StatusOK,
-		map[string]string{
-			"message": "password changed successfully",
+		MessageResponse{
+			Message: "password changed successfully",
 		},
 	)
 }
@@ -286,22 +357,31 @@ func (h *Handler) ChangeRole(
 	err = h.service.ChangeRole(body)
 
 	if err != nil {
+		if errors.Is(err, ErrInvalidRole) {
+			httpresponse.Error(
+				w,
+				http.StatusBadRequest,
+				"INVALID_ROLE",
+				"invalid role",
+			)
+			return
+		}
 
 		httpresponse.Error(
 			w,
-			http.StatusBadRequest,
+			http.StatusInternalServerError,
 			"CHANGE_ROLE_FAILED",
-			err.Error(),
+			"failed to change role",
 		)
 
 		return
 	}
 
-	httpresponse.JSON(
+	httpresponse.Success(
 		w,
 		http.StatusOK,
-		map[string]string{
-			"message": "role updated successfully",
+		MessageResponse{
+			Message: "role updated successfully",
 		},
 	)
 }

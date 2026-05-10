@@ -12,3 +12,14 @@ func ScrapeEvents() ([]Event, error) {
 
 	return parseEvents(html)
 }
+
+func ScrapeEventByID(id string) (*Event, error) {
+	url := "http://ufcstats.com/event-details/" + id
+
+	html, err := fetchHTML(url)
+	if err != nil {
+		return nil, err
+	}
+
+	return parseEventDetail(html, url)
+}

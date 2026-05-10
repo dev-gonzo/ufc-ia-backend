@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/joho/godotenv"
 	httpSwagger "github.com/swaggo/http-swagger"
@@ -13,8 +15,31 @@ import (
 	"ufc-backend/internal/auth"
 	"ufc-backend/internal/database"
 	"ufc-backend/internal/routes"
+	"ufc-backend/internal/scraping"
+	"ufc-backend/internal/shared/http_response"
 	"ufc-backend/internal/users"
 )
+
+func tryLoadScrapingBrowserEnvFromInfoTxt() {
+	if strings.TrimSpace(os.Getenv("SCRAPING_BROWSER_WS_URL")) != "" {
+		return
+	}
+
+	file, err := os.Open("info.txt")
+	if err != nil {
+		return
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if strings.HasPrefix(line, "wss://") && strings.Contains(line, ":9222") {
+			_ = os.Setenv("SCRAPING_BROWSER_WS_URL", line)
+			return
+		}
+	}
+}
 
 // @title UFC Backend API
 // @version 1.0
@@ -32,6 +57,8 @@ func main() {
 	if err != nil {
 		log.Println(".env not found")
 	}
+
+	tryLoadScrapingBrowserEnvFromInfoTxt()
 
 	db := database.Connect()
 
@@ -58,6 +85,18 @@ func main() {
 		usersRepository,
 	)
 
+	scrapingRepository := scraping.NewRepository(
+		db,
+	)
+
+	scrapingService := scraping.NewService(
+		scrapingRepository,
+	)
+
+	scrapingHandler := scraping.NewHandler(
+		scrapingService,
+	)
+
 	routes.RegisterAuthRoutes(
 		mux,
 		authHandler,
@@ -70,6 +109,7 @@ func main() {
 
 	routes.RegisterScrapingRoutes(
 		mux,
+		scrapingHandler,
 	)
 
 	mux.Handle(
@@ -97,9 +137,11 @@ func main() {
 		address,
 	)
 
+	handler := httpresponse.RecoverMiddleware(mux)
+
 	err = http.ListenAndServe(
 		address,
-		mux,
+		handler,
 	)
 
 	if err != nil {

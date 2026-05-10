@@ -2,8 +2,10 @@ package users
 
 import (
 	"context"
+	"errors"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"ufc-backend/internal/auth"
 )
@@ -30,7 +32,7 @@ func (r *Repository) Create(user *User) error {
 		RETURNING id, created_at
 	`
 
-	return r.db.QueryRow(
+	err := r.db.QueryRow(
 		context.Background(),
 		query,
 		user.Email,
@@ -41,6 +43,21 @@ func (r *Repository) Create(user *User) error {
 		&user.ID,
 		&user.CreatedAt,
 	)
+	if err == nil {
+		return nil
+	}
+
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		switch pgErr.ConstraintName {
+		case "users_email_key":
+			return ErrEmailInUse
+		case "users_username_key":
+			return ErrUsernameInUse
+		}
+	}
+
+	return err
 }
 
 func (r *Repository) FindByEmail(

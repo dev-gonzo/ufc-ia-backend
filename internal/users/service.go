@@ -1,8 +1,6 @@
 package users
 
 import (
-	"errors"
-
 	"ufc-backend/internal/auth"
 )
 
@@ -21,15 +19,15 @@ func (s *Service) Create(
 ) (*User, error) {
 
 	if !isValidEmail(input.Email) {
-		return nil, errors.New("invalid email")
+		return nil, ErrInvalidEmail
 	}
 
 	if !isValidUsername(input.Username) {
-		return nil, errors.New("invalid username")
+		return nil, ErrInvalidUsername
 	}
 
 	if !isValidPassword(input.Password) {
-		return nil, errors.New("invalid password")
+		return nil, ErrInvalidPassword
 	}
 
 	hash, err := auth.HashPassword(
@@ -67,7 +65,7 @@ func (s *Service) ChangePassword(
 	if !isValidPassword(
 		input.NewPassword,
 	) {
-		return errors.New("invalid password")
+		return ErrInvalidPassword
 	}
 
 	valid := auth.CheckPassword(
@@ -98,7 +96,7 @@ func (s *Service) ChangeRole(
 ) error {
 
 	if !isValidRole(input.Role) {
-		return errors.New("invalid role")
+		return ErrInvalidRole
 	}
 
 	return s.repository.UpdateRole(

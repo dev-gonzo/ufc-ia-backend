@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"ufc-backend/internal/shared/httpresponse"
+	"ufc-backend/internal/shared/http_response"
 )
 
 type Handler struct {
@@ -86,7 +86,7 @@ func (h *Handler) Login(
 		return
 	}
 
-	httpresponse.JSON(
+	httpresponse.Success(
 		w,
 		http.StatusOK,
 		LoginResponse{

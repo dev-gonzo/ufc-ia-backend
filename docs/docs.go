@@ -67,6 +67,46 @@ const docTemplate = `{
                 }
             }
         },
+        "/scrape/event": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get event details from ufcstats.com/event-details/{id} and save to DB",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Scraping"
+                ],
+                "summary": "Scrape and save a single UFC event",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Event ID hash",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/ufcstats.Event"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httpresponse.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/scrape/events": {
             "get": {
                 "security": [
@@ -74,14 +114,14 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get all completed UFC events from ufcstats.com",
+                "description": "Get all completed UFC events from ufcstats.com and save to DB",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Scraping"
                 ],
-                "summary": "Scrape UFC events",
+                "summary": "Scrape and save UFC events",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -89,6 +129,40 @@ const docTemplate = `{
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/ufcstats.Event"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httpresponse.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/scrape/tapology/events": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Fetch UFC promotion events list from Tapology via remote scraping browser and save to DB",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Scraping"
+                ],
+                "summary": "Scrape and save UFC events from Tapology",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/tapology.Event"
                             }
                         }
                     },
@@ -346,16 +420,42 @@ const docTemplate = `{
                 }
             }
         },
+        "tapology.Event": {
+            "type": "object",
+            "properties": {
+                "details": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
         "ufcstats.Event": {
             "type": "object",
             "properties": {
+                "created_at": {
+                    "type": "string"
+                },
                 "date": {
+                    "type": "string"
+                },
+                "event_sync": {
+                    "type": "boolean"
+                },
+                "id": {
                     "type": "string"
                 },
                 "location": {
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                },
+                "updated_at": {
                     "type": "string"
                 },
                 "url": {

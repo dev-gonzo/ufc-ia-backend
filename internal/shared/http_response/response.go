@@ -14,6 +14,10 @@ type ErrorBody struct {
 	Message string `json:"message" example:"invalid body"`
 }
 
+type SuccessResponse struct {
+	Data interface{} `json:"data"`
+}
+
 func JSON(
 	w http.ResponseWriter,
 	status int,
@@ -28,6 +32,37 @@ func JSON(
 	w.WriteHeader(status)
 
 	json.NewEncoder(w).Encode(payload)
+}
+
+func Success(
+	w http.ResponseWriter,
+	status int,
+	data interface{},
+) {
+	JSON(
+		w,
+		status,
+		SuccessResponse{
+			Data: data,
+		},
+	)
+}
+
+func RecoverMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if recover() != nil {
+				Error(
+					w,
+					http.StatusInternalServerError,
+					"INTERNAL_ERROR",
+					"internal server error",
+				)
+			}
+		}()
+
+		next.ServeHTTP(w, r)
+	})
 }
 
 func Error(

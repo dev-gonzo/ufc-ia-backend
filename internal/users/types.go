@@ -29,3 +29,13 @@ type ChangeRoleInput struct {
 	UserID string `json:"user_id"`
 	Role   string `json:"role"`
 }
+
+type MessageResponse struct {
+	Message string `json:"message"`
+}
+
+type ProfileResponse struct {
+	UserID string `json:"user_id"`
+	Email  string `json:"email"`
+	Role   string `json:"role"`
+}

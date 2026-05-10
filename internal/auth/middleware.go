@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"strings"
+
+	httpresponse "ufc-backend/internal/shared/http_response"
 )
 
 type contextKey string
@@ -16,7 +18,12 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		authHeader := r.Header.Get("Authorization")
 
 		if authHeader == "" {
-			http.Error(w, "missing token", http.StatusUnauthorized)
+			httpresponse.Error(
+				w,
+				http.StatusUnauthorized,
+				"MISSING_TOKEN",
+				"missing token",
+			)
 			return
 		}
 
@@ -25,7 +32,12 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		claims, err := ValidateToken(tokenString)
 
 		if err != nil {
-			http.Error(w, "invalid token", http.StatusUnauthorized)
+			httpresponse.Error(
+				w,
+				http.StatusUnauthorized,
+				"INVALID_TOKEN",
+				"invalid token",
+			)
 			return
 		}
 

@@ -1,18 +1,32 @@
 package users
 
 import (
-	"encoding/json"
 	"net/http"
 
 	"ufc-backend/internal/auth"
+	"ufc-backend/internal/shared/http_response"
 )
 
 func Profile(w http.ResponseWriter, r *http.Request) {
-	claims := r.Context().Value(auth.UserContextKey).(*auth.Claims)
+	claims, ok := r.Context().Value(auth.UserContextKey).(*auth.Claims)
 
-	json.NewEncoder(w).Encode(map[string]string{
-		"user_id": claims.UserID,
-		"email":   claims.Email,
-		"role":    claims.Role,
-	})
+	if !ok {
+		httpresponse.Error(
+			w,
+			http.StatusUnauthorized,
+			"UNAUTHORIZED",
+			"unauthorized",
+		)
+		return
+	}
+
+	httpresponse.Success(
+		w,
+		http.StatusOK,
+		ProfileResponse{
+			UserID: claims.UserID,
+			Email:  claims.Email,
+			Role:   claims.Role,
+		},
+	)
 }
